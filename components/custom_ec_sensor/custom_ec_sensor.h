@@ -1,6 +1,7 @@
 #pragma once
 #include "esphome.h"
 #include "esphome/components/ads1115/ads1115.h"
+#include <cmath>  // For std::isfinite
 
 namespace esphome {
 namespace custom_ec_sensor {
@@ -32,8 +33,14 @@ class EcSensor : public esphome::PollingComponent, public esphome::sensor::Senso
     }
 
     float voltage = ads_sensor_->state * 1000.0;  // Convert to millivolts
-    // Use the water_temperature sensor pointer directly
-    temperature_ = water_temperature_sensor_->state;
+
+    // Retrieve water temperature and default to 25°C if the reading is invalid.
+    float temp = water_temperature_sensor_->state;
+    if (!std::isfinite(temp)) {
+      ESP_LOGW("EC Sensor", "Water temperature reading invalid; defaulting to 25°C");
+      temp = 25.0;
+    }
+    temperature_ = temp;
 
     float raw_ec_value = 1000 * voltage / RES2 / ECREF * k_value_ * 10.0;
     float ec_value_µS = raw_ec_value / (1.0 + 0.0185 * (temperature_ - 25.0));  // µS/cm with temperature compensation
@@ -41,7 +48,8 @@ class EcSensor : public esphome::PollingComponent, public esphome::sensor::Senso
     // Convert µS/cm to mS/cm
     float ec_value_mS = ec_value_µS / 1000.0;
 
-    ESP_LOGD("EC Sensor", "EC: %.2f µS/cm, %.2f mS/cm", ec_value_µS, ec_value_mS);
+    ESP_LOGD("EC Sensor", "Raw Voltage: %.2f mV, Temp: %.2f°C, EC: %.2f µS/cm, %.2f mS/cm",
+             voltage, temperature_, ec_value_µS, ec_value_mS);
     publish_state(ec_value_mS);
   }
 
