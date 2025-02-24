@@ -16,10 +16,9 @@ CONFIG_SCHEMA = cv.Schema({
 }).extend(sensor.sensor_schema(EcSensor))
 
 def to_code(config):
-    # Create a new instance of your sensor, passing in the required parameters.
-    var = cg.new_Pvariable(config[CONF_ID],
-                           config["ads_sensor"],
-                           config["water_temperature"])
+    ads_sensor = cg.get_variable(config["ads_sensor"])
+    water_temperature = cg.get_variable(config["water_temperature"])
+    var = cg.new_Pvariable(config[CONF_ID], ads_sensor, water_temperature)
     yield cg.register_component(var, config)
     yield sensor.register_sensor(var, config)
 
