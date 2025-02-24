@@ -2,6 +2,7 @@
 #include "esphome.h"
 #include "esphome/components/ads1115/ads1115.h"
 
+namespace esphome {
 namespace custom_ec_sensor {
 
 class EcSensor : public esphome::PollingComponent, public esphome::sensor::Sensor {
@@ -79,3 +80,4 @@ class EcSensor : public esphome::PollingComponent, public esphome::sensor::Senso
 };
 
 }  // namespace custom_ec_sensor
+}  // namespace esphome
