@@ -7,10 +7,10 @@ from esphome.const import CONF_ID
 custom_ec_sensor_ns = cg.esphome_ns.namespace('custom_ec_sensor')
 
 # Declare your C++ class. Ensure "EcSensor" exactly matches your header.
-EcSensor = custom_ec_sensor_ns.class_('EcSensor', cg.PollingComponent, sensor_component.Sensor)
+EcSensor = custom_ec_sensor_ns.class_('EcSensor', cg.PollingComponent, sensor_component.sensor)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(EcSensor),
-    cv.Required("ads_sensor"): cv.use_id(sensor_component.Sensor),
-    cv.Required("water_temperature"): cv.use_id(sensor_component.Sensor),
+    cv.Required("ads_sensor"): cv.use_id(sensor_component.sensor),
+    cv.Required("water_temperature"): cv.use_id(sensor_component.sensor),
 }).extend(sensor_component.sensor_schema(EcSensor))
