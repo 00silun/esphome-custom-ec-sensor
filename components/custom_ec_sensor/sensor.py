@@ -15,12 +15,12 @@ CONFIG_SCHEMA = cv.Schema({
     
 }).extend(sensor.sensor_schema(EcSensor))
 
-def to_code(config):
-    ads_sensor = cg.get_variable(config["ads_sensor"])
-    water_temperature = cg.get_variable(config["water_temperature"])
+async def to_code(config):
+    ads_sensor = await cg.get_variable(config["ads_sensor"])
+    water_temperature = await cg.get_variable(config["water_temperature"])
     var = cg.new_Pvariable(config[CONF_ID], ads_sensor, water_temperature)
-    yield cg.register_component(var, config)
-    yield sensor.register_sensor(var, config)
+    await cg.register_component(var, config)
+    await sensor.register_sensor(var, config)
 
 
 
