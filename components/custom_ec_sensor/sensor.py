@@ -23,17 +23,5 @@ def to_code(config):
 
 
 
-# Declare your C++ class with both polling and sensor bases.
-EcSensor = custom_ec_sensor_ns.class_(
-    "EcSensor", cg.PollingComponent, sensor_component.Sensor
-)
-
-# Extend the configuration with the default sensor schema.
-CONFIG_SCHEMA = cv.Schema({
-    cv.GenerateID(): cv.declare_id(EcSensor),
-    cv.Required("ads_sensor"): cv.use_id(sensor_component.Sensor),
-    cv.Required("water_temperature"): cv.use_id(sensor_component.Sensor),
-}).extend(sensor_component.sensor_schema(EcSensor))
-
 
 
