@@ -46,43 +46,55 @@ class EcSensor : public esphome::PollingComponent, public esphome::sensor::Senso
     }
     temperature_ = temp;
 
-    // Make sure calibration has been performed.
+    // Check if calibration has been completed.
     if (voltage_1413_ == 0 || voltage_12_88_ == 0) {
       ESP_LOGW("EC Sensor", "Calibration not complete. Using default conversion.");
-      // Optionally, you could publish a default value or skip measurement.
+      // Default linear conversion:
+      // The sensor output (0 - 3.4V) is mapped linearly to 0 - 15 mS/cm.
+      float ec_value_mS = voltage * (15.0 / 3.4);
+      // Apply temperature compensation (assuming compensation factor of 0.0185 per °C deviation from 25°C).
+      ec_value_mS = ec_value_mS / (1.0 + 0.0185 * (temperature_ - 25.0));
+      ESP_LOGD("EC Sensor", "Default Conversion: Raw Voltage: %.2f V, Temp: %.2f°C, EC: %.2f mS/cm",
+               voltage, temperature_, ec_value_mS);
+      publish_state(ec_value_mS);
       return;
     }
 
-    // Two-point linear interpolation:
-    // EC (µS/cm) = 1413 + (voltage - voltage_1413_) * k_value_
+    // If calibration is complete, use two-point linear interpolation.
+    // The idea:
+    //   In the 1413 µS/cm solution, voltage should equal voltage_1413_.
+    //   In the 12.88 mS/cm (12880 µS/cm) solution, voltage equals voltage_12_88_.
+    // Slope (k_value_) is computed as:
+    //   k_value_ = (12880 - 1413) / (voltage_12_88_ - voltage_1413_)
+    // Then, for any measured voltage, we calculate:
+    //   EC (µS/cm) = 1413 + (voltage - voltage_1413_) * k_value_
     float ec_value_uS = 1413.0 + (voltage - voltage_1413_) * k_value_;
-    // Apply temperature compensation (assuming 0.0185 per °C deviation from 25°C).
+    // Apply temperature compensation.
     ec_value_uS = ec_value_uS / (1.0 + 0.0185 * (temperature_ - 25.0));
     // Convert µS/cm to mS/cm.
     float ec_value_mS = ec_value_uS / 1000.0;
 
-    ESP_LOGD("EC Sensor", "Raw Voltage: %.2f V, Temp: %.2f°C, EC: %.2f µS/cm, %.2f mS/cm",
+    ESP_LOGD("EC Sensor", "Calibrated Conversion: Raw Voltage: %.2f V, Temp: %.2f°C, EC: %.2f µS/cm, %.2f mS/cm",
              voltage, temperature_, ec_value_uS, ec_value_mS);
     publish_state(ec_value_mS);
   }
 
-  // Calibration: Call these functions with a measured voltage (in volts)
-  // when the probe is immersed in the standard solutions.
+  // Calibration functions (voltage in volts).
   void calibrate_ec_1413(float voltage) {
-    // This calibration point corresponds to 1413 µS/cm.
+    // Standard solution: 1413 µS/cm.
     voltage_1413_ = voltage;
     update_k_value();
     ESP_LOGD("EC Sensor", "Stored calibration voltage for 1413 µS/cm: %.3f V", voltage);
   }
 
   void calibrate_ec_12_88(float voltage) {
-    // This calibration point corresponds to 12.88 mS/cm (12880 µS/cm).
+    // Standard solution: 12.88 mS/cm = 12880 µS/cm.
     voltage_12_88_ = voltage;
     update_k_value();
     ESP_LOGD("EC Sensor", "Stored calibration voltage for 12.88 mS/cm: %.3f V", voltage);
   }
 
-  // Returns true if both calibration points are set and calibration has been performed.
+  // Returns true if both calibration points are set and calibration is complete.
   bool is_calibrated() const {
     return (voltage_1413_ != 0 && voltage_12_88_ != 0 && calibration_indicator_);
   }
@@ -96,24 +108,22 @@ class EcSensor : public esphome::PollingComponent, public esphome::sensor::Senso
  private:
   esphome::sensor::Sensor *ads_sensor_;
   esphome::sensor::Sensor *water_temperature_sensor_;
-  float k_value_;         // Slope in µS/cm per volt, computed from calibration.
+  float k_value_;         // Slope (µS/cm per volt) computed from calibration.
   float temperature_;
-  float voltage_1413_;    // Measured voltage (in V) in the 1413 µS/cm standard solution.
-  float voltage_12_88_;   // Measured voltage (in V) in the 12.88 mS/cm standard solution.
+  float voltage_1413_;    // Voltage (in V) in the 1413 µS/cm standard.
+  float voltage_12_88_;   // Voltage (in V) in the 12.88 mS/cm standard.
   bool calibration_indicator_;  // True if calibration is complete.
 
-  // Recalculate k_value based on the two calibration points.
+  // Recalculate k_value_ based on the two calibration points.
   void update_k_value() {
     if (voltage_1413_ == 0 || voltage_12_88_ == 0) {
-      ESP_LOGW("EC Sensor", "Both calibration points needed for accurate calibration.");
+      ESP_LOGW("EC Sensor", "Both calibration points are needed for accurate calibration.");
       return;
     }
-    // k_value_ is the slope (µS/cm per volt).
     k_value_ = (12880.0 - 1413.0) / (voltage_12_88_ - voltage_1413_);
-    // Save k_value_ persistently.
     esphome::ESPPreferenceObject k_pref = esphome::global_preferences->make_preference<float>(0);
     k_pref.save(&k_value_);
-    calibration_indicator_ = true;  // Mark sensor as calibrated.
+    calibration_indicator_ = true;
     ESP_LOGD("EC Sensor", "Calibration Completed: K-value = %.2f", k_value_);
   }
 };
